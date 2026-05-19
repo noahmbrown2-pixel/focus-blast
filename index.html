@@ -21,7 +21,6 @@ canvas#bg{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none
   padding:5px 14px;font-size:0.75em;font-weight:800;letter-spacing:2px;
   box-shadow:0 0 18px rgba(170,0,255,0.5);}
 #lives{font-size:1.25em;letter-spacing:2px;}
-#prog{font-size:1em;font-weight:800;color:#00e5ff;letter-spacing:1px;}
 #box{background:rgba(255,255,255,0.04);border:2px solid rgba(0,229,255,0.3);border-radius:22px;
   padding:18px 14px;min-height:160px;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
@@ -95,7 +94,6 @@ canvas#bg{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none
 <div id="game">
   <div id="hud">
     <div id="level">LVL 1</div>
-    <div id="prog">0/5</div>
     <div id="lives">❤️❤️❤️</div>
   </div>
   <div id="box">
@@ -133,7 +131,6 @@ canvas#bg{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none
   <p>Visual patterns · Mazes · Logic<br>No timer. Just your brain.</p>
   <div class="badge-row">
     <span class="badge">SHAPE MATRIX</span>
-    <span class="badge">COUNT</span>
     <span class="badge">PATTERN</span>
     <span class="badge">ROTATION</span>
     <span class="badge">MIRROR</span>
@@ -271,7 +268,7 @@ function bgLoop(){
 bgLoop();
 
 // ============ GAME STATE ============
-const ST={lives:3,level:1,progress:0,solved:0,attempts:0,playing:false,recentTypes:[]};
+const ST={lives:3,level:1,solved:0,attempts:0,playing:false,recentTypes:[]};
 const mainCv=document.getElementById('main-cv');
 const mainCx=mainCv.getContext('2d');
 const visAns=document.getElementById('vis-answers');
@@ -295,7 +292,6 @@ function setSize(w,h){mainCv.width=w;mainCv.height=h;mainCv.style.width=w+'px';m
 function updateHUD(){
   livesEl.textContent='❤️'.repeat(ST.lives)+'🖤'.repeat(3-ST.lives);
   levelEl.textContent='LVL '+ST.level;
-  progEl.textContent=ST.progress+'/5';
 }
 
 // ============ CHALLENGE: SHAPE MATRIX ============
@@ -339,34 +335,6 @@ function genShapeMatrix(){
     },
     answer,
     choices:shuffled.map(ch=>({draw(ctx,w,h){clrCv(ctx,w,h);drawSh(ctx,ch.sh,w/2,h/2,Math.min(w,h)*.32,ch.col);}}))
-  };
-}
-
-// ============ CHALLENGE: COUNT MATRIX ============
-function genCountMatrix(){
-  const grid=[];
-  for(let r=0;r<3;r++){const row=[];for(let c=0;c<3;c++)row.push((r+c)%3+1);grid.push(row);}
-  const correct=grid[2][2];
-  const choices=shuf([correct,...shuf([1,2,3,4,5,6].filter(n=>n!==correct)).slice(0,3)]);
-  const answer=choices.indexOf(correct);
-  const dotCol=pick(['#00e5ff','#00ff88','#ffaa00']);
-  return {
-    mode:'txt+draw',label:'COUNT THE DOTS',
-    text:'How many dots fit the pattern?',
-    draw(ctx,w,h){
-      clrCv(ctx,w,h);
-      const pad=12,cell=(w-pad*2)/3;
-      for(let r=0;r<3;r++)for(let c=0;c<3;c++){
-        const x=pad+c*cell,y=pad+r*cell;
-        ctx.strokeStyle='rgba(255,255,255,0.12)';ctx.lineWidth=1;
-        ctx.strokeRect(x+2,y+2,cell-4,cell-4);
-        const cx=x+cell/2,cy=y+cell/2;
-        if(r===2&&c===2){drawQ(ctx,cx,cy,cell*.3);}
-        else{drawDots(ctx,grid[r][c],cx,cy,cell*.35,dotCol);}
-      }
-    },
-    answer,
-    choices:choices.map(n=>({text:String(n)}))
   };
 }
 
@@ -671,21 +639,26 @@ function genTextOdd(){
 
 // ============ CHALLENGE: LOGIC ============
 const LOGIC=[
-  {q:'If all roses are flowers and some flowers fade quickly, which is TRUE?',a:'Some roses might fade quickly',w:['All roses fade quickly','No roses fade','Roses never fade']},
-  {q:'Tom is taller than Jim. Jim is taller than Sam. Who is shortest?',a:'Sam',w:['Tom','Jim','Same height']},
-  {q:'A clock shows 3:15. What angle do the hands make?',a:'7.5°',w:['0°','90°','15°']},
-  {q:'If today is Tuesday, what day is it in 100 days?',a:'Thursday',w:['Tuesday','Wednesday','Friday']},
-  {q:'I am an odd number. Remove a letter and I become even. What am I?',a:'Seven',w:['Three','Nine','Five']},
-  {q:'A farmer has 17 sheep. All but 9 die. How many remain?',a:'9',w:['8','17','0']},
-  {q:'Which number comes next: 2, 6, 12, 20, ?',a:'30',w:['28','24','32']},
-  {q:'A is twice B. B is twice C. If C=4, what is A?',a:'16',w:['8','12','24']},
-  {q:'If you have 3 apples and take 2 away, how many do you have?',a:'2',w:['1','3','5']},
-  {q:'Mary has 4 daughters. Each daughter has 1 brother. How many kids total?',a:'5',w:['8','4','9']},
-  {q:'What is half of two plus two?',a:'3',w:['2','4','1']},
-  {q:'A bat and ball cost $1.10. Bat costs $1 more than ball. Ball costs?',a:'$0.05',w:['$0.10','$1.00','$0.50']},
-  {q:'Which number is the odd one out: 4, 9, 16, 23, 25?',a:'23',w:['4','9','25']},
-  {q:'If 5 machines make 5 widgets in 5 min, 100 machines make 100 widgets in?',a:'5 min',w:['100 min','1 min','20 min']},
-  {q:'A lily pad doubles each day. Day 48 it covers the pond. When was it half?',a:'Day 47',w:['Day 24','Day 46','Day 25']}
+  {q:'Tom is taller than Jim.\nJim is taller than Sam.\nWho is shortest?',a:'Sam',w:['Tom','Jim','All equal']},
+  {q:'I am an odd number.\nRemove one letter and I become even.\nWhat am I?',a:'Seven',w:['Three','Five','Nine']},
+  {q:'Which always comes but never arrives?',a:'Tomorrow',w:['Yesterday','Next year','Summer']},
+  {q:'A rooster sits on the peak of a roof.\nWhich side does the egg roll down?',a:'Roosters don\'t lay eggs',w:['Left side','Right side','The steeper side']},
+  {q:'What comes once in a minute,\ntwice in a moment,\nbut never in a thousand years?',a:'The letter M',w:['The letter A','Zero','Silence']},
+  {q:'You see me once in June,\ntwice in November,\nnever in May. What am I?',a:'The letter E',w:['The letter N','The letter O','The letter I']},
+  {q:'All cats have whiskers.\nFluffball is a cat.\nDoes Fluffball have whiskers?',a:'Yes, definitely',w:['No','Maybe','Cannot know']},
+  {q:'If you overtake the person\nin 2nd place,\nwhat place are you in?',a:'2nd place',w:['1st place','3rd place','Last place']},
+  {q:'A surgeon is called to operate on a boy.\nThe boy\'s father cries "That\'s my son!"\nThe boy is also the surgeon\'s son. How?',a:'The surgeon is his mother',w:['He has two dads','The father is confused','The boy has a twin']},
+  {q:'What can run but never walk,\nhas a mouth but never talks,\nhas a head but never weeps?',a:'A river',w:['A clock','A road','A book']},
+  {q:'I speak without a mouth.\nI hear without ears.\nI have no body but come alive with wind.\nWhat am I?',a:'An echo',w:['A shadow','A thought','A dream']},
+  {q:'No humans live forever.\nSocrates was human.\nTherefore Socrates...',a:'Was mortal',w:['Was immortal','Was not human','Could not die']},
+  {q:'You have a fox, a chicken, and grain.\nYou can only carry one across a river at a time.\nWhat must you take first?',a:'The chicken',w:['The fox','The grain','Any of them']},
+  {q:'The more you take,\nthe more you leave behind.\nWhat am I?',a:'Footsteps',w:['Time','Money','Air']},
+  {q:'I have cities but no houses,\nmountains but no trees,\nwater but no fish.\nWhat am I?',a:'A map',w:['A painting','A dream','A mirror']},
+  {q:'All members of Club A are also in Club B.\nSome Club B members are in Club C.\nCan a Club A member be in Club C?',a:'Yes, possibly',w:['No, never','Yes, always','Impossible to know']},
+  {q:'What gets wetter\nthe more it dries?',a:'A towel',w:['Rain','A sponge','Steam']},
+  {q:'Tom\'s mother has three children.\nThe first is named April.\nThe second is named May.\nWhat is the third named?',a:'Tom',w:['June','March','July']},
+  {q:'If a plane crashes\nexactly on the border\nbetween two countries,\nwhere are survivors buried?',a:'Survivors aren\'t buried',w:['Nearest country','Both countries','Neither country']},
+  {q:'A is B\'s sister.\nB is C\'s brother.\nC is D\'s father.\nHow is A related to D?',a:'Aunt',w:['Sister','Mother','Cousin']},
 ];
 function genLogic(){
   const l=pick(LOGIC);
@@ -703,15 +676,14 @@ function genLogic(){
 function getPool(){
   const lv=ST.level;
   const base=['shapeMatrix','colorPattern','rotation','maze','textOdd','analogy'];
-  if(lv>=2)base.push('countMatrix','logic','oddVisual','mirror');
-  if(lv>=4){base.push('maze','maze','shapeMatrix','countMatrix');}
+  if(lv>=2)base.push('logic','oddVisual','mirror');
+  if(lv>=4){base.push('maze','maze','shapeMatrix','mirror');}
   if(lv>=6){base.push('maze','colorPattern','rotation');}
   return base;
 }
 
 const GENS={
   shapeMatrix:genShapeMatrix,
-  countMatrix:genCountMatrix,
   colorPattern:genColorPattern,
   rotation:genRotation,
   mirror:genMirror,
@@ -811,9 +783,8 @@ function handleResult(correct){
     const rect=mainCv.getBoundingClientRect();
     burst(rect.left+rect.width/2,rect.top+rect.height/2,'#00ff88',30);
     ST.solved++;ST.attempts++;
-    ST.progress++;
-    if(ST.progress>=5){
-      ST.progress=0;ST.level++;
+    if(ST.solved%8===0){
+      ST.level++;
       setTimeout(levelUp,400);
     }
   } else {
@@ -860,7 +831,7 @@ function gameOver(){
 
 function startGame(){
   ensureAudio();
-  ST.lives=3;ST.level=1;ST.progress=0;ST.solved=0;ST.attempts=0;ST.recentTypes=[];
+  ST.lives=3;ST.level=1;ST.solved=0;ST.attempts=0;ST.recentTypes=[];
   ST.playing=true;
   updateHUD();
   document.getElementById('start-screen').classList.remove('on');
