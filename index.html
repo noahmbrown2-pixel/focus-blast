@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>FOCUS BLAST</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  background:#06060f;color:#fff;
+  font-family:'Segoe UI',system-ui,sans-serif;
+  overflow:hidden;height:100svh;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  user-select:none;-webkit-user-select:none;
+}
+canvas{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;}
+#game{position:relative;z-index:10;width:min(500px,96vw);display:flex;flex-direction:column;gap:11px;}
+#hud{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;
+  background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;}
+#score{font-size:1.4em;font-weight:800;color:#00ffcc;letter-spacing:1px;}
+#combo{font-size:1.1em;font-weight:800;color:#888;transition:color 0.2s;}
+#lives{font-size:1.3em;letter-spacing:2px;}
+#timer-wrap{height:8px;background:rgba(255,255,255,0.1);border-radius:99px;overflow:hidden;}
+#timer{height:100%;width:100%;border-radius:99px;background:linear-gradient(90deg,#00ff88,#00ccff);}
+#level{align-self:center;background:linear-gradient(135deg,#5500ff,#cc00ff);border-radius:20px;
+  padding:3px 14px;font-size:0.75em;font-weight:800;letter-spacing:2px;}
+#box{background:rgba(255,255,255,0.04);border:2px solid rgba(0,200,255,0.25);border-radius:22px;
+  padding:28px 20px 22px;min-height:155px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  transition:border-color 0.3s;}
+#type-lbl{font-size:0.68em;text-transform:uppercase;letter-spacing:3px;color:rgba(255,255,255,0.35);}
+#question{font-size:1.85em;font-weight:800;line-height:1.35;text-align:center;white-space:pre-wrap;}
+#question.xl{font-size:2.6em;}
+#answers{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.btn{background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.12);
+  color:#fff;font-size:1.15em;font-weight:700;padding:15px 10px;border-radius:14px;
+  cursor:pointer;transition:all 0.12s;-webkit-tap-highlight-color:transparent;}
+.btn:hover,.btn:focus{background:rgba(0,200,255,0.15);border-color:rgba(0,200,255,0.5);outline:none;}
+.btn.ok{background:rgba(0,255,100,0.2);border-color:#00ff64;color:#00ff64;}
+.btn.bad{background:rgba(255,50,50,0.2);border-color:#ff3344;color:#ff4455;}
+.screen{display:none;position:fixed;inset:0;z-index:50;background:rgba(6,6,15,0.96);
+  flex-direction:column;align-items:center;justify-content:center;gap:20px;text-align:center;padding:24px;}
+.screen.on{display:flex;}
+.screen h1{font-size:clamp(2.2em,9vw,4em);font-weight:900;
+  background:linear-gradient(135deg,#00ffcc,#aa00ff);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:3px;}
+.screen p{color:rgba(255,255,255,0.55);font-size:1.05em;max-width:380px;line-height:1.6;}
+.go-btn{background:linear-gradient(135deg,#0088ff,#aa00ff);border:none;color:#fff;
+  font-size:1.25em;font-weight:800;padding:15px 44px;border-radius:16px;cursor:pointer;
+  letter-spacing:1px;box-shadow:0 4px 28px rgba(0,136,255,0.4);transition:transform 0.12s,box-shadow 0.12s;}
+.go-btn:hover{transform:scale(1.05);box-shadow:0 6px 36px rgba(0,136,255,0.6);}
+#hs{color:#ffaa00;font-size:1em;}
+#go-score{font-size:2.2em;font-weight:900;color:#00ffcc;}
+#new-hs{display:none;color:#ffaa00;font-size:1.1em;font-weight:800;letter-spacing:1px;}
+#go-stats{color:rgba(255,255,255,0.5);font-size:0.9em;line-height:2;}
+#flash{position:fixed;inset:0;z-index:30;pointer-events:none;
+  display:flex;align-items:center;justify-content:center;
+  font-size:4em;font-weight:900;opacity:0;transition:opacity 0.08s;}
+#cpop{position:fixed;top:28%;left:50%;transform:translateX(-50%);z-index:31;
+  pointer-events:none;font-size:2.2em;font-weight:900;color:#ffaa00;
+  text-shadow:0 0 24px #ff8800;opacity:0;transition:opacity 0.15s,transform 0.15s;}
+/* type badges */
+.badge-row{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-width:380px;}
+.badge{background:rgba(255,255,255,0.08);border-radius:8px;padding:4px 10px;
+  font-size:0.72em;color:rgba(255,255,255,0.5);letter-spacing:1px;}
+@keyframes pop{0%{transform:scale(0.6);opacity:0}60%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+.pop{animation:pop 0.22s ease-out both;}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px) rotate(-1deg)}
+  40%{transform:translateX(6px) rotate(1deg)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+.shake{animation:shake 0.3s;}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="game">
+  <div id="hud">
+    <div id="score">0</div>
+    <div id="combo">×1</div>
+    <div id="lives">❤️❤️❤️</div>
+  </div>
+  <div id="timer-wrap"><div id="timer"></div></div>
+  <div id="level">LVL 1</div>
+  <div id="box">
+    <div id="type-lbl">CHALLENGE</div>
+    <div id="question" class="xl">—</div>
+  </div>
+  <div id="answers">
+    <button class="btn" id="b0"></button>
+    <button class="btn" id="b1"></button>
+    <button class="btn" id="b2"></button>
+    <button class="btn" id="b3"></button>
+  </div>
+</div>
+
+<div id="start-screen" class="screen on">
+  <h1>FOCUS BLAST</h1>
+  <p>300+ brain challenges. Math · Patterns · Logic · Speed.<br>Build combos. Beat the clock. Never stop.</p>
+  <p id="hs">Best: 0</p>
+  <div class="badge-row">
+    <span class="badge">QUICK MATH</span><span class="badge">SEQUENCES</span>
+    <span class="badge">TRUE / FALSE</span><span class="badge">ODD ONE OUT</span>
+    <span class="badge">WORD PROBLEMS</span><span class="badge">PATTERNS</span>
+    <span class="badge">PERCENTAGES</span><span class="badge">POWERS</span>
+    <span class="badge">NEGATIVES</span><span class="badge">MIXED OPS</span>
+  </div>
+  <button class="go-btn" id="start-btn">▶ START</button>
+  <p style="color:rgba(255,255,255,0.28);font-size:0.8em;">Keys 1 2 3 4 to answer</p>
+</div>
+
+<div id="go-screen" class="screen">
+  <h1 style="background:linear-gradient(135deg,#ff3366,#ff8800);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">GAME OVER</h1>
+  <div id="go-score">0</div>
+  <div id="new-hs">⭐ NEW BEST! ⭐</div>
+  <div id="go-stats"></div>
+  <button class="go-btn" id="retry-btn">▶ RETRY</button>
+</div>
+
+<div id="flash"></div>
+<div id="cpop"></div>
+
+<script>
+// ── Canvas / particles ─────────────────────────────────────────────────────
+const cv=document.getElementById('c'),cx=cv.getContext('2d');
+let W,H;
+function resize(){W=cv.width=window.innerWidth;H=cv.height=window.innerHeight;}
+window.addEventListener('resize',resize);resize();
+
+const dots=Array.from({length:55},()=>({
+  x:Math.random()*9999,y:Math.random()*9999,
+  vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,
+  r:Math.random()*2+.5,
+  c:['#00ffcc1a','#aa00ff1a','#0088ff1a'][0|Math.random()*3]
+}));
+const parts=[];
+
+function burst(x,y,col,n=22){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2,spd=Math.random()*7+2;
+    parts.push({x,y,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd,
+      r:Math.random()*4+2,life:1,d:Math.random()*.035+.02,c:col});
+  }
+}
+
+(function frame(){
+  cx.clearRect(0,0,W,H);
+  const g=cx.createRadialGradient(W/2,H/2,0,W/2,H/2,W*.75);
+  g.addColorStop(0,'#0d0d22');g.addColorStop(1,'#06060f');
+  cx.fillStyle=g;cx.fillRect(0,0,W,H);
+  for(const p of dots){
+    p.x=(p.x+p.vx+W)%W;p.y=(p.y+p.vy+H)%H;
+    cx.beginPath();cx.arc(p.x,p.y,p.r,0,Math.PI*2);cx.fillStyle=p.c;cx.fill();
+  }
+  for(let i=parts.length-1;i>=0;i--){
+    const p=parts[i];
+    p.x+=p.vx;p.y+=p.vy;p.vy+=.12;p.life-=p.d;
+    if(p.life<=0){parts.splice(i,1);continue;}
+    cx.globalAlpha=p.life;
+    cx.beginPath();cx.arc(p.x,p.y,p.r*p.life,0,Math.PI*2);cx.fillStyle=p.c;cx.fill();
+  }
+  cx.globalAlpha=1;
+  requestAnimationFrame(frame);
+})();
+
+// ── Audio ──────────────────────────────────────────────────────────────────
+let ac;
+function tone(f,t,dur,vol=.25,delay=0){
+  try{
+    if(!ac)ac=new(window.AudioContext||window.webkitAudioContext)();
+    if(ac.state==='suspended')ac.resume();
+    const o=ac.createOscillator(),g=ac.createGain();
+    o.connect(g);g.connect(ac.destination);
+    o.type=t;o.frequency.value=f;
+    const now=ac.currentTime+delay;
+    g.gain.setValueAtTime(vol,now);
+    g.gain.exponentialRampToValueAtTime(.001,now+dur);
+    o.start(now);o.stop(now+dur+.05);
+  }catch(e){}
+}
+const sfx={
+  ok:()=>{tone(523,'sine',.09);tone(659,'sine',.09,.25,.09);tone(784,'sine',.12,.25,.18);},
+  bad:()=>{tone(200,'sawtooth',.18,.2);tone(150,'sawtooth',.18,.2,.1);},
+  combo:n=>{const f=[523,659,784,1047,1319][Math.min(n-2,4)];tone(f,'sine',.22,.4);},
+  up:()=>[523,659,784,1047].forEach((f,i)=>tone(f,'sine',.15,.4,i*.1)),
+  over:()=>{tone(440,'sawtooth',.28,.25);tone(330,'sawtooth',.28,.25,.28);tone(220,'sawtooth',.5,.25,.56);}
+};
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+const R=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+const pick=a=>a[0|Math.random()*a.length];
+function shuf(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=R(0,i);[b[i],b[j]]=[b[j],b[i]];}return b;}
+
+function wrongs(correct,n,min=-99999,max=99999){
+  const s=new Set();let tries=0;
+  const range=Math.max(20,Math.abs(correct)*.7);
+  while(s.size<n&&tries<200){
+    tries++;
+    const w=correct+R(-Math.ceil(range),Math.ceil(range));
+    if(w!==correct&&w>=min&&w<=max)s.add(w);
+  }
+  let offset=1;
+  while(s.size<n){s.add(correct+offset*(s.size%2===0?1:-1));offset++;}
+  return[...s].slice(0,n);
+}
+function ch4(correct,min=-99999,max=99999){
+  return shuf([correct,...wrongs(correct,3,min,max)]).map(String);
+}
+
+// ── 13 Challenge generators ───────────────────────────────────────────────
+const GEN={
+
+  // 1. Arithmetic
+  math(lv){
+    const ops=lv<3?['+','-']:lv<6?['+','-','*']:['*','+','-','÷'];
+    const op=pick(ops);
+    const r=lv<3?20:lv<5?50:lv<8?100:200;
+    let a,b,ans,q;
+    if(op==='+'){a=R(1,r);b=R(1,r);ans=a+b;q=`${a} + ${b} = ?`;}
+    else if(op==='-'){a=R(r/2|0,r);b=R(1,r/2|0);ans=a-b;q=`${a} − ${b} = ?`;}
+    else if(op==='*'){const m=Math.min(12,r/3|0);a=R(2,m);b=R(2,m);ans=a*b;q=`${a} × ${b} = ?`;}
+    else{a=R(2,12);b=R(2,12);ans=b;q=`${a*b} ÷ ${a} = ?`;}
+    return{lbl:'QUICK MATH',q,ans:String(ans),ch:ch4(ans,0),t:Math.max(3,8-lv*.3)};
+  },
+
+  // 2. Number sequence
+  seq(lv){
+    const pats=[
+      ()=>{const s=R(1,15),d=R(2,10);const n=[s,s+d,s+d*2,s+d*3];return{n,a:s+d*4};},
+      ()=>{const s=R(1,4);const n=[s,s*2,s*4,s*8];return{n,a:s*16};},
+      ()=>{const o=R(0,5);const n=Array.from({length:4},(_,i)=>(i+1+o)**2);return{n,a:(5+o)**2};},
+      ()=>{const a=R(1,5),b=R(a,8);const s=[a,b,a+b,b+(a+b)];return{n:s,a:s[2]+s[3]};},
+      ()=>{const s=R(15,30),d=R(3,8);const n=[s,s-d,s-d*2,s-d*3];return{n,a:s-d*4};},
+      ()=>{const s=R(1,3);const n=[s,s*3,s*9,s*27];return{n,a:s*81};},
+    ];
+    const pool=lv<4?pats.slice(0,2):lv<7?pats.slice(0,4):pats;
+    const{n,a}=pick(pool)();
+    return{lbl:'NEXT NUMBER',q:n.join('  →  ')+'  →  ?',ans:String(a),ch:ch4(a,0),t:Math.max(4,10-lv*.3)};
+  },
+
+  // 3. True / False
+  tf(lv){
+    const r=lv<4?12:lv<7?20:30;
+    const op=pick(lv<3?['+','-']:lv<6?['+','-','*']:['*','+','-']);
+    let a,b,real,sym;
+    if(op==='+'){a=R(1,r);b=R(1,r);real=a+b;sym='+';}
+    else if(op==='-'){a=R(r/2,r);b=R(1,r/2);real=a-b;sym='−';}
+    else{const m=Math.min(12,r);a=R(2,m);b=R(2,m);real=a*b;sym='×';}
+    const isT=Math.random()>.38;
+    const shown=isT?real:real+pick([-5,-4,-3,-2,-1,1,2,3,4,5]);
+    return{lbl:'TRUE OR FALSE?',q:`${a} ${sym} ${b} = ${shown}`,
+      ans:isT?'TRUE':'FALSE',ch:['TRUE','FALSE'],t:Math.max(2.5,6-lv*.2),two:true};
+  },
+
+  // 4. Fill the blank
+  blank(lv){
+    const tpls=[
+      ()=>{const m=Math.min(12,lv<5?8:12);const a=R(2,m),b=R(2,m);const side=pick(['a','b','r']);
+        if(side==='a')return{q:`? × ${b} = ${a*b}`,a};
+        if(side==='b')return{q:`${a} × ? = ${a*b}`,a:b};
+        return{q:`${a} × ${b} = ?`,a:a*b};},
+      ()=>{const tot=R(10,lv<5?40:99);const p=R(1,tot-1);
+        return pick([0,1])?{q:`${p} + ? = ${tot}`,a:tot-p}:{q:`? + ${tot-p} = ${tot}`,a:p};},
+      ()=>{const d=R(2,lv<5?6:12),qv=R(1,10);return{q:`${d*qv} ÷ ? = ${qv}`,a:d};},
+      ()=>{const a=R(2,lv<5?15:30),b=R(2,lv<5?15:30);
+        return pick([0,1])?{q:`? − ${b} = ${a}`,a:a+b}:{q:`${a+b} − ? = ${a}`,a:b};},
+    ];
+    const{q,a}=pick(tpls)();
+    return{lbl:'FILL THE BLANK',q,ans:String(a),ch:ch4(a,0),t:Math.max(3,9-lv*.3)};
+  },
+
+  // 5. Odd one out
+  odd(lv){
+    const numGroups=[
+      ()=>{const base=pick([2,3,4,5,6]);const pool=[];
+        for(let i=2;i<=18;i++)if(i*base<=90)pool.push(i*base);
+        const items=shuf(pool).slice(0,3);
+        let bad;do{bad=R(base+1,80);}while(bad%base===0||items.includes(bad));
+        return{items:shuf([...items,bad]).map(String),ans:String(bad)};},
+      ()=>{const isE=Math.random()>.5;const items=[];
+        while(items.length<3){const n=R(2,50);if((n%2===0)===isE&&!items.includes(n))items.push(n);}
+        let bad;do{bad=R(2,50);}while((bad%2===0)===isE||items.includes(bad));
+        return{items:shuf([...items,bad]).map(String),ans:String(bad)};},
+      ()=>{const primes=[2,3,5,7,11,13,17,19],comps=[4,6,8,9,10,12,14,15,16,18];
+        const isPrime=Math.random()>.5;
+        if(isPrime){const it=shuf(comps).slice(0,3);const bad=pick(primes);
+          return{items:shuf([...it,bad]).map(String),ans:String(bad)};}
+        const it=shuf(primes).slice(0,3);const bad=pick(comps);
+        return{items:shuf([...it,bad]).map(String),ans:String(bad)};},
+    ];
+    const wordGroups=[
+      {items:['Dog','Cat','Bird','Table'],ans:'Table'},
+      {items:['Apple','Banana','Carrot','Mango'],ans:'Carrot'},
+      {items:['Red','Blue','Circle','Green'],ans:'Circle'},
+      {items:['Monday','Tuesday','March','Friday'],ans:'March'},
+      {items:['km','cm','mm','kg'],ans:'kg'},
+      {items:['Jupiter','Mars','Moon','Saturn'],ans:'Moon'},
+      {items:['Piano','Guitar','Violin','Tiger'],ans:'Tiger'},
+      {items:['2','4','6','9'],ans:'9'},
+      {items:['10','20','35','40'],ans:'35'},
+      {items:['Triangle','Square','Circle','Cube'],ans:'Cube'},
+      {items:['Paris','London','Tokyo','Pacific'],ans:'Pacific'},
+      {items:['Gold','Silver','Iron','Rain'],ans:'Rain'},
+    ];
+    if(lv<3&&Math.random()>.5){
+      const g=shuf(wordGroups)[0];
+      return{lbl:'ODD ONE OUT',q:'Which does NOT belong?',ans:g.ans,ch:shuf(g.items),t:10};
+    }
+    const{items,ans}=pick(numGroups)();
+    return{lbl:'ODD ONE OUT',q:'Which does NOT belong?',ans,ch:items,t:Math.max(4,10-lv*.3)};
+  },
+
+  // 6. Comparison
+  cmp(lv){
+    if(lv>=4&&Math.random()>.5){
+      const d1=pick([2,3,4,5,6,8,10]),n1=R(1,d1-1);
+      const d2=pick([2,3,4,5,6,8,10]),n2=R(1,d2-1);
+      const v1=n1/d1,v2=n2/d2;
+      const ans=v1>v2?'>':v1<v2?'<':'=';
+      return{lbl:'BIGGER OR SMALLER?',q:`${n1}/${d1}  ___  ${n2}/${d2}`,
+        ans,ch:shuf(['>','<','=','≠']),t:Math.max(3,8-lv*.2)};
+    }
+    const r=lv<4?50:lv<7?200:1000;
+    let a=R(1,r),b;do{b=R(1,r);}while(b===a);
+    return{lbl:'BIGGER OR SMALLER?',q:`${a}  ___  ${b}`,
+      ans:a>b?'>':'<',ch:shuf(['>','<','=','≠']),t:Math.max(2,6-lv*.15)};
+  },
+
+  // 7. Word problem
+  word(lv){
+    const pool=[
+      ()=>{const s=R(5,30),g=R(1,s-1);return{q:`Sam has ${s} cookies.\nGives ${g} away.\nHow many left?`,a:s-g};},
+      ()=>{const pr=R(2,20)*5,pd=pr+pick([5,10,20,25]);return{q:`Item costs $${pr}.\nPaid with $${pd}.\nChange?`,a:pd-pr};},
+      ()=>{const spd=pick([30,40,50,60]),h=R(1,4);return{q:`${spd} km/h for ${h} hour${h>1?'s':''}.\nDistance?`,a:spd*h};},
+      ()=>{const tots=pick([12,16,20,24,30,36]),grps=pick([2,3,4,6]);
+        if(tots%grps!==0)return null;
+        return{q:`${tots} students\nin ${grps} equal groups.\nPer group?`,a:tots/grps};},
+      ()=>{const rate=R(5,15),hrs=R(2,8);return{q:`Earns $${rate}/hr.\nWorks ${hrs} hours.\nTotal?`,a:rate*hrs};},
+      ()=>{const a=R(3,9),b=R(3,9);return{q:`${a} rows of ${b} seats.\nTotal seats?`,a:a*b};},
+      ()=>{const tot=R(20,60),boys=R(5,tot-5);return{q:`${tot} total.\n${boys} are boys.\nHow many girls?`,a:tot-boys};},
+      ()=>{const p=pick([10,20,25,50]),base=R(2,20)*10;return{q:`${p}% off $${base}.\nSale price?`,a:base-base*p/100};},
+    ];
+    let r=null,tries=0;
+    while(!r&&tries<30){r=pick(pool)();tries++;}
+    const{q,a}=r||{q:'8 × 7 = ?',a:56};
+    return{lbl:'WORD PROBLEM',q,ans:String(a),ch:ch4(a,0),t:Math.max(6,14-lv*.4)};
+  },
+
+  // 8. Symbol pattern
+  sym(lv){
+    const syms=['★','●','▲','■','♦','♥','✦','◆','☀','✿'];
+    const plen=lv<3?2:lv<6?pick([2,3]):pick([3,4]);
+    const pat=[];
+    for(let i=0;i<plen;i++){let s;do{s=pick(syms);}while(pat.includes(s));pat.push(s);}
+    const reps=R(2,3);
+    const total=plen*reps+R(1,plen);
+    const full=Array.from({length:total},(_,i)=>pat[i%plen]);
+    const ans=full[full.length-1];
+    const shown=[...full.slice(0,-1),'?'].join('  ');
+    const bad=shuf(syms.filter(s=>s!==ans)).slice(0,3);
+    return{lbl:'WHAT COMES NEXT?',q:shown,ans,ch:shuf([ans,...bad]),t:Math.max(3,9-lv*.3)};
+  },
+
+  // 9. Percentage
+  pct(lv){
+    const ps=lv<4?[10,25,50]:lv<7?[10,20,25,50,75]:[5,10,15,20,25,30,40,50,75];
+    const p=pick(ps);
+    const base=R(2,lv<5?20:50)*pick([5,10,20]);
+    const ans=Math.round(base*p/100);
+    return{lbl:'PERCENTAGE',q:`${p}% of ${base} = ?`,ans:String(ans),ch:ch4(ans,0),t:Math.max(4,10-lv*.3)};
+  },
+
+  // 10. Double / Half
+  dh(lv){
+    const isD=Math.random()>.4;
+    const n=R(lv<4?5:10,lv<4?50:200);
+    const num=isD?n:(n%2===0?n:n+1);
+    const ans=isD?num*2:num/2;
+    return{lbl:isD?'DOUBLE IT!':'HALF IT!',q:`${isD?'Double':'Half'} of ${num} = ?`,
+      ans:String(ans),ch:ch4(ans,0),t:Math.max(2,6-lv*.2)};
+  },
+
+  // 11. Negatives (lv 5+)
+  neg(lv){
+    const op=pick(['+','-','*']);
+    let ans,q;
+    if(op==='*'){const x=R(-9,9),y=R(-9,9);ans=x*y;q=`(${x}) × (${y}) = ?`;}
+    else{const a=R(-20,20),b=R(-20,20);
+      if(op==='+'){ans=a+b;q=`(${a}) + (${b}) = ?`;}
+      else{ans=a-b;q=`(${a}) − (${b}) = ?`;}
+    }
+    return{lbl:'NEGATIVES',q,ans:String(ans),ch:ch4(ans,-999,999),t:Math.max(3,9-lv*.2)};
+  },
+
+  // 12. Powers (lv 4+)
+  pow(lv){
+    const base=R(2,lv<7?8:12);
+    const exp=lv<7?2:pick([2,3]);
+    const ans=base**exp;
+    return{lbl:'POWERS',q:`${base}^${exp} = ?`,ans:String(ans),ch:ch4(ans,0),t:Math.max(3,9-lv*.25)};
+  },
+
+  // 13. Mixed ops (lv 6+)
+  mixed(lv){
+    const a=R(2,15),b=R(2,10),c=R(1,8);
+    const{q,ans}=pick([
+      ()=>{const v=(a+b)*c;return{q:`(${a}+${b})×${c}=?`,ans:v};},
+      ()=>{const v=a*b-c;return{q:`${a}×${b}−${c}=?`,ans:v};},
+      ()=>{const v=a*b+c*b;return{q:`${a}×${b}+${c}×${b}=?`,ans:v};},
+      ()=>{const v=a**2+b;return{q:`${a}²+${b}=?`,ans:v};},
+    ])();
+    return{lbl:'MIXED OPS',q,ans:String(ans),ch:ch4(ans,-9999,9999),t:Math.max(4,11-lv*.3)};
+  },
+};
+
+function genPool(lv){
+  const p=['math','seq','tf','blank','dh','sym','odd'];
+  if(lv>=2)p.push('cmp','word','pct');
+  if(lv>=5)p.push('neg','pow');
+  if(lv>=6)p.push('mixed');
+  return p;
+}
+
+// ── Game state ─────────────────────────────────────────────────────────────
+let G={score:0,combo:1,maxCombo:1,lives:3,lv:1,answered:0,correct:0,
+  cur:null,ts:0,td:0,tid:null,done:false,hist:[]};
+let HS=+localStorage.getItem('fb_hs')||0;
+
+const $=id=>document.getElementById(id);
+const scoreEl=$('score'),comboEl=$('combo'),livesEl=$('lives'),
+  timerEl=$('timer'),lvEl=$('level'),
+  typeLbl=$('type-lbl'),qEl=$('question'),
+  flashEl=$('flash'),cpopEl=$('cpop');
+const btns=[0,1,2,3].map(i=>$(`b${i}`));
+
+$('hs').textContent=`Best: ${HS}`;
+
+function hud(){
+  scoreEl.textContent=G.score.toLocaleString();
+  comboEl.textContent=`×${G.combo}`;
+  comboEl.style.color=G.combo>=6?'#ff44aa':G.combo>=3?'#ffaa00':G.combo>=2?'#ddcc00':'#888';
+  livesEl.textContent=[0,1,2].map(i=>i<G.lives?'❤️':'🤍').join('');
+  lvEl.textContent=`LVL ${G.lv}`;
+}
+
+function startGame(){
+  Object.assign(G,{score:0,combo:1,maxCombo:1,lives:3,lv:1,answered:0,correct:0,
+    cur:null,done:false,hist:[]});
+  $('start-screen').classList.remove('on');
+  $('go-screen').classList.remove('on');
+  hud();
+  next();
+}
+
+function next(){
+  if(G.tid)clearInterval(G.tid);
+  const pool=genPool(G.lv);
+  let name,tries=0;
+  do{name=pick(pool);tries++;}
+  while(tries<30&&G.hist.slice(-3).filter(t=>t===name).length>=2);
+  G.hist.push(name);if(G.hist.length>8)G.hist.shift();
+
+  const c=GEN[name](G.lv);
+  G.cur=c;G.done=false;
+
+  typeLbl.textContent=c.lbl;
+  qEl.textContent=c.q;
+  qEl.className=c.q.replace(/\n/g,'').length<14?'xl':'';
+
+  const choices=c.two?['TRUE','FALSE']:c.ch;
+  btns.forEach((b,i)=>{
+    if(i<choices.length){
+      b.textContent=choices[i];b.style.display='';
+      b.className='btn pop';b.style.animationDelay=`${i*.05}s`;
+    } else b.style.display='none';
+  });
+
+  G.td=c.t*1000;G.ts=performance.now();
+  timerEl.style.transition='none';timerEl.style.width='100%';
+  timerEl.style.background='linear-gradient(90deg,#00ff88,#00ccff)';
+  requestAnimationFrame(()=>{
+    timerEl.style.transition=`width ${c.t}s linear`;timerEl.style.width='0%';
+  });
+  $('box').style.borderColor='rgba(0,200,255,0.25)';
+
+  G.tid=setInterval(()=>{
+    const rem=G.td-(performance.now()-G.ts);
+    const pct=rem/G.td;
+    if(pct<.3)timerEl.style.background='linear-gradient(90deg,#ff3300,#ff8800)';
+    else if(pct<.6)timerEl.style.background='linear-gradient(90deg,#ffaa00,#ffdd00)';
+    if(rem<=0){clearInterval(G.tid);if(!G.done)timeout();}
+  },80);
+}
+
+function timeout(){
+  G.done=true;
+  $('box').style.borderColor='rgba(255,50,50,.5)';
+  btns.forEach(b=>{if(b.textContent===G.cur.ans)b.className='btn ok';});
+  sfx.bad();flash('⏱','#ff5533');shake();
+  loseLife();
+  setTimeout(()=>G.lives>0&&(checkLvl(),next()),1300);
+}
+
+function answer(val){
+  if(G.done)return;G.done=true;
+  clearInterval(G.tid);G.answered++;
+  const ok=val===G.cur.ans;
+  btns.forEach(b=>{
+    if(b.textContent===G.cur.ans)b.className='btn ok';
+    else if(b.textContent===val&&!ok)b.className='btn bad';
+  });
+  if(ok){
+    G.correct++;
+    const elapsed=(performance.now()-G.ts)/1000;
+    const pts=Math.floor((100+Math.max(0,G.cur.t-elapsed)*20)*G.combo);
+    G.score+=pts;G.combo=Math.min(G.combo+1,10);G.maxCombo=Math.max(G.maxCombo,G.combo);
+    sfx.ok();flash(`+${pts}`,'#00ffcc');
+    const bx=$('box').getBoundingClientRect();
+    burst(bx.left+bx.width/2,bx.top+bx.height/2,'#00ff88',28);
+    $('box').style.borderColor='rgba(0,255,100,.5)';
+    if(G.combo>=3){pop(`${G.combo}× COMBO!`);sfx.combo(G.combo);}
+  } else {
+    G.combo=1;sfx.bad();flash('✗','#ff3344');shake();
+    const bx=$('box').getBoundingClientRect();
+    burst(bx.left+bx.width/2,bx.top+bx.height/2,'#ff4422',16);
+    loseLife();
+  }
+  hud();
+  setTimeout(()=>G.lives>0&&(checkLvl(),next()),ok?750:1300);
+}
+
+function loseLife(){G.lives--;hud();if(G.lives<=0)setTimeout(gameOver,1300);}
+
+function checkLvl(){
+  const nl=Math.floor(G.correct/10)+1;
+  if(nl>G.lv){G.lv=nl;pop(`LEVEL ${G.lv}!`);sfx.up();
+    const bx=$('box').getBoundingClientRect();
+    burst(bx.left+bx.width/2,bx.top+bx.height/2,'#aa00ff',45);}
+}
+
+function gameOver(){
+  clearInterval(G.tid);sfx.over();
+  const nh=G.score>HS;if(nh){HS=G.score;localStorage.setItem('fb_hs',HS);}
+  $('go-score').textContent=`Score: ${G.score.toLocaleString()}`;
+  $('new-hs').style.display=nh?'block':'none';
+  $('go-stats').innerHTML=
+    `Questions: ${G.answered} &nbsp;|&nbsp; Correct: ${G.correct}<br>`+
+    `Max Combo: ${G.maxCombo}× &nbsp;|&nbsp; Level: ${G.lv}<br>`+
+    `Accuracy: ${G.answered?Math.round(G.correct/G.answered*100):0}%`;
+  $('hs').textContent=`Best: ${HS}`;
+  $('go-screen').classList.add('on');
+}
+
+let ftid;
+function flash(txt,col){
+  flashEl.textContent=txt;flashEl.style.color=col;
+  flashEl.style.textShadow=`0 0 30px ${col}`;flashEl.style.opacity='1';
+  clearTimeout(ftid);ftid=setTimeout(()=>flashEl.style.opacity='0',450);
+}
+let ptid;
+function pop(txt){
+  cpopEl.textContent=txt;cpopEl.style.opacity='1';
+  cpopEl.style.transform='translateX(-50%) scale(1.15)';
+  clearTimeout(ptid);ptid=setTimeout(()=>{
+    cpopEl.style.opacity='0';cpopEl.style.transform='translateX(-50%) scale(1)';
+  },900);
+}
+function shake(){
+  const b=$('box');b.classList.remove('shake');requestAnimationFrame(()=>b.classList.add('shake'));
+}
+
+btns.forEach(b=>b.addEventListener('click',()=>answer(b.textContent)));
+document.addEventListener('keydown',e=>{
+  if(G.done)return;
+  const m={'1':0,'2':1,'3':2,'4':3};
+  if(m[e.key]!==undefined){const b=btns[m[e.key]];if(b&&b.style.display!=='none')answer(b.textContent);}
+});
+$('start-btn').addEventListener('click',startGame);
+$('retry-btn').addEventListener('click',startGame);
+</script>
+</body>
+</html>
